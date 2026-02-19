@@ -1,282 +1,76 @@
-# Dynamic Lookahead Limiter - Chrome Extension (Simplified)
+# Dynamic Lookahead Limiter — Chrome Extension
 
-A professional audio limiter extension that processes audio from web pages with adaptive recovery time and lookahead processing.
+A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery.
 
-## Features
+## Architecture
 
-- **Automatic Audio Detection**: Processes all `<audio>` and `<video>` elements on any page
-- **Real-time Parameter Control**: Adjust settings instantly while audio plays
-- **Dynamic Recovery Time**: Automatically adapts based on frequency content
-  - Low frequencies + high amplitude → longer recovery (smooth, musical)
-  - High frequencies (hi-hats, cymbals) → fast recovery (transparent)
-- **Lookahead Processing** (0-1 ms): Prevents clipping on transients
-- **Simple Interface**: Just 3 files needed!
+```
+source -> inputAnalyser -> AudioWorkletNode -> destination
+           (spectral,       (per-sample: envelope,
+            main thread)     lookahead, gain, metering)
+```
+
+- **AudioWorkletProcessor** (`limiter-worklet.js`): runs on the audio thread — ring buffer lookahead delay, per-sample envelope follower (instant attack, adaptive hold, exponential decay), hard/soft knee gain reduction, output gain, and stereo level metering.
+- **Main thread rAF loop** (`processor.js`): spectral analysis only (FFT centroid, low-energy ratio, RMS) via AnalyserNode, sent to the worklet for adaptive hold/recovery computation.
+- **Interceptor** (`interceptor.js`): patches `AudioContext` constructors and `AudioNode.connect` at `document_start` to track all page Web Audio contexts and destination connections.
+- **Bridge** (`bridge.js`): content script in ISOLATED world, relays `chrome.runtime` messages to the MAIN world processor via `postMessage`, and exposes the worklet URL via a DOM data attribute.
+- **Popup** (`popup.html`, `popup.js`): UI with meters, transfer curve plot, sliders, and auto-gain toggle. No processing logic.
+
+## Files
+
+| File | World | Role |
+|------|-------|------|
+| `interceptor.js` | MAIN (content script) | Patches AudioContext/connect to track page audio graphs |
+| `bridge.js` | ISOLATED (content script) | Message relay between extension and page |
+| `processor.js` | MAIN (injected by popup) | Creates AudioWorkletNode chains, spectral analysis loop |
+| `limiter-worklet.js` | AudioWorklet thread | Sample-accurate limiter DSP |
+| `popup.html` / `popup.js` | Extension popup | UI, meters, parameter control |
+| `manifest.json` | — | Extension manifest (MV3) |
 
 ## Installation
 
-### Files Needed (Only 3!)
+1. Clone this repo
+2. Open `chrome://extensions/`
+3. Enable **Developer mode**
+4. Click **Load unpacked** and select the repo folder
 
-Create a folder called `dynamic-limiter-extension` and save these files:
+## Usage
 
-**1. manifest.json**
-```json
-{
-  "manifest_version": 3,
-  "name": "Dynamic Lookahead Limiter",
-  "version": "1.0.0",
-  "description": "Professional audio limiter for web pages",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
-  },
-  "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
-  },
-  "host_permissions": [
-    "<all_urls>"
-  ]
-}
-```
+1. Open a page with audio (YouTube, SoundCloud, any HTML5 player)
+2. Click the extension icon
+3. Click **Activate**
+4. Adjust sliders — changes apply in real-time
 
-**2. popup.html** - Copy from artifact above
+## Parameters
 
-**3. popup.js** - Copy from artifact above
-
-**4. processor.js** - Copy from artifact above
-
-**5. Icons** - Create three small PNG files (16x16, 48x48, 128x128 pixels)
-   - You can use any small image, just name them correctly
-   - Or create simple colored squares in MS Paint/Photoshop
-
-### Load Extension
-
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked**
-4. Select your `dynamic-limiter-extension` folder
-5. Done! ✓
-
-## How to Use
-
-### Basic Usage:
-
-1. **Open any page with audio**
-   - YouTube video
-   - Spotify web player
-   - SoundCloud
-   - Any site with `<audio>` or `<video>` tags
-
-2. **Click the extension icon** in Chrome toolbar
-
-3. **Click "Activate Limiter"**
-   - Extension injects processor into the page
-   - All audio is now processed!
-
-4. **Adjust parameters** using the sliders
-   - Changes apply immediately in real-time
-   - No need to restart
-
-### Parameters:
-
-**Saturation Level** (-20 to 0 dB)
-- Threshold where limiting begins
-- Lower = more aggressive limiting
-- **Recommended**: -6 dB for most content
-
-**Output Gain** (0 to +20 dB)
-- Makeup gain to compensate for limiting
-- Increases overall volume
-- **Tip**: Match to saturation level for transparent boost
-
-**Lookahead Time** (0 to 1 ms)
-- Preview time to catch peaks before they clip
-- Higher = better transient protection
-- **Recommended**: 0.5 ms
-
-**Min Recovery Time** (1 to 100 ms)
-- Base recovery speed
-- Extends automatically for bass content
-- **Recommended**: 20 ms for music, 15 ms for speech
+| Parameter | Range | Description |
+|-----------|-------|-------------|
+| **Saturation Level** | -30 to 0 dB | Threshold where limiting begins |
+| **Knee** | 0 to 6 dB | Soft knee width (0 = hard knee) |
+| **Output Gain** | 0 to +30 dB | Makeup gain after limiting |
+| **Lookahead** | 0 to 20 ms | Ring buffer delay for transient anticipation |
+| **Min Recovery** | 1 to 1000 ms | Base envelope decay time (extended by spectral analysis) |
+| **Auto Gain** | on/off | Locks output gain to |saturation level| |
 
 ## How It Works
 
-### Simple Architecture:
+- The envelope follower uses instant attack with adaptive hold (minimum = lookahead time) to prevent overshooting.
+- Hold and recovery times are modulated by spectral content: low frequencies and dense peaks extend hold; high-frequency transients allow faster recovery.
+- The worklet posts stereo peak levels to the main thread at ~60fps for the popup meters.
+- Worklet loading uses a two-strategy approach (direct extension URL, then blob URL fallback) to handle pages with strict CSP.
+- Web Audio API contexts are intercepted and rerouted through the limiter chain; media elements use `createMediaElementSource` with a source node cache for clean deactivate/reactivate cycles.
 
-1. **popup.html/js**: User interface
-2. **processor.js**: Injected into web pages, processes all audio
-3. No background workers, no offscreen documents!
+## Supported Sites
 
-### Audio Processing:
-
-When you click "Activate":
-1. Extension finds all `<audio>` and `<video>` elements
-2. Intercepts their audio using Web Audio API
-3. Applies limiting with dynamic recovery
-4. Outputs processed audio to your speakers
-
-### Dynamic Recovery:
-
-The limiter analyzes audio in real-time:
-- **Spectral centroid**: Detects if sound is bass or treble
-- **Low frequency energy**: Measures 0-200 Hz content
-- **Signal amplitude**: Overall level
-
-**Result**: 
-- Bass drums, bass guitar → Extended recovery (no pumping)
-- Hi-hats, cymbals, vocals → Fast recovery (transparent)
-
-## Supported Websites
-
-✅ **YouTube** - Works perfectly  
-✅ **Spotify Web Player** - Works perfectly  
-✅ **SoundCloud** - Works perfectly  
-✅ **Twitch** - Works perfectly  
-✅ **HTML5 video players** - Works perfectly  
-✅ **Any site with `<audio>` or `<video>` tags**  
-
-⚠️ **Netflix/Prime Video** - May not work (DRM protection)  
-⚠️ **Chrome system pages** (chrome://) - Cannot inject scripts  
-
-## Troubleshooting
-
-### "No audio/video elements found"
-- Make sure the page actually has audio/video
-- Try refreshing the page
-- Some sites load media dynamically - wait for video to appear first
-
-### Extension doesn't appear
-- Check `chrome://extensions/` for errors
-- Make sure all 4 files are saved
-- Icons must exist (can be any small images)
-
-### Sliders don't work
-- Make sure you clicked "Activate Limiter" first
-- Check browser console (F12) for errors
-- Try deactivating and reactivating
-
-### Audio sounds distorted
-- Lower the output gain
-- Increase saturation level (make it less negative, like -3 dB)
-- Reduce lookahead time
-
-### No sound at all
-- Check that page audio isn't muted
-- Check system volume
-- Try deactivating the limiter
-- The page may have already created an AudioContext (refresh page)
-
-## Tips & Best Practices
-
-### For Best Results:
-
-1. **Activate BEFORE playing audio** for best results
-2. **Start with defaults** then adjust to taste
-3. **Don't over-limit**: If gain reduction is constant, raise saturation level
-4. **Match output to saturation**: -6 dB saturation + +6 dB output = transparent
-
-### Recommended Presets:
-
-**Music (YouTube, Spotify)**
-- Saturation: -3 dB
-- Output Gain: +3 dB
-- Lookahead: 0.5 ms
-- Min Recovery: 30 ms
-
-**Podcasts/Speech**
-- Saturation: -9 dB
-- Output Gain: +9 dB
-- Lookahead: 0.3 ms
-- Min Recovery: 15 ms
-
-**Live Streams**
-- Saturation: -6 dB
-- Output Gain: +6 dB
-- Lookahead: 1 ms
-- Min Recovery: 20 ms
-
-**Maximum Loudness**
-- Saturation: -3 dB
-- Output Gain: +10 dB
-- Lookahead: 0.8 ms
-- Min Recovery: 20 ms
-
-## Technical Details
-
-- **Processing**: Real-time Web Audio API
-- **Sample Rate**: 48 kHz
-- **FFT Size**: 2048 samples
-- **Latency**: 0-1 ms (configurable)
-- **CPU Usage**: Low (native Web Audio processing)
+Works on any page with `<audio>`/`<video>` elements or Web Audio API usage.
+DRM-protected content (Netflix, Disney+) cannot be processed.
 
 ## Privacy
 
-This extension:
-- ✅ Processes audio locally in the browser
-- ✅ Does NOT record any audio
-- ✅ Does NOT send any data to servers
-- ✅ Does NOT collect any information
-- ✅ Only runs when you activate it
-- ✅ Open source - inspect the code!
-
-## Limitations
-
-1. **One page at a time**: Must activate on each tab separately
-2. **Page reload**: Need to reactivate after refreshing page
-3. **DRM content**: Cannot process protected media (Netflix, etc.)
-4. **Existing AudioContext**: If page already uses Web Audio, may conflict
-
-## Advanced Usage
-
-### Developer Console
-
-Open browser console (F12) to see:
-- Injection confirmation
-- Number of media elements found
-- Real-time processing status
-
-### Auto-detection
-
-The extension automatically detects:
-- Media elements added after activation
-- Dynamically loaded videos
-- AJAX-loaded audio players
-
-## Version History
-
-**v1.0.0** - Simplified Release
-- Direct page injection (no offscreen documents)
-- Real-time parameter updates
-- Auto-detection of media elements
-- Dynamic recovery based on frequency analysis
-- Simple 3-file architecture
-
-## Support
-
-**If it doesn't work:**
-
-1. Open browser console (F12) - any red errors?
-2. Check the extension is loaded at `chrome://extensions/`
-3. Make sure page has `<audio>` or `<video>` elements
-4. Try a simple YouTube video first
-5. Make sure you activated BEFORE playing audio
-
-**Common fixes:**
-- Refresh the page and activate before playing
-- Deactivate and reactivate
-- Check that page audio isn't muted
-- Try a different website (YouTube always works)
+- All processing is local — no audio is recorded or transmitted
+- No data collection
+- Only active when you click Activate
 
 ## License
 
-Free to use and modify for personal and commercial purposes.
+Free to use and modify.
