@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Lookahead Limiter</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 450px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #fff;
+      padding: 10px 12px;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+
+    .header svg {
+      color: #3b82f6;
+      width: 16px;
+      height: 16px;
+    }
+
+    h1 {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 9px;
+      margin-top: 1px;
+    }
+
+    .top-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+      align-items: stretch;
+    }
+
+    .status-bar {
+      flex: 1;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+    }
+
+    #status {
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .status-inactive { color: #94a3b8; }
+    .status-active { color: #10b981; }
+    .status-error { color: #ef4444; }
+
+    .power-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .power-btn.active {
+      background: #16a34a;
+      color: white;
+      box-shadow: 0 4px 20px rgba(22, 163, 74, 0.5);
+    }
+
+    .power-btn.inactive {
+      background: #475569;
+      color: #cbd5e1;
+    }
+
+    .power-btn:hover {
+      transform: scale(1.02);
+    }
+    
+    .control-panel {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+
+    .control-group {
+      margin-bottom: 8px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .control-label {
+      font-weight: 500;
+      font-size: 10px;
+      color: #e2e8f0;
+    }
+
+    .control-value {
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      font-size: 10px;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #334155;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+    }
+    
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #60a5fa;
+    }
+    
+    .plot-box {
+      background: #080c14;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      overflow: hidden;
+      width: 70%;
+      margin: 0 auto;
+    }
+
+    #plotCanvas {
+      width: 100%;
+      height: 160px;
+      display: block;
+    }
+    
+    .meters {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .meter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .meter-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .meter-ticks-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .meter-ticks-pad {
+      width: 8px;
+      flex-shrink: 0;
+    }
+
+    .meter-ticks-track {
+      flex: 1;
+      height: 3px;
+      position: relative;
+    }
+
+    .meter-tick {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 3px;
+      background: #334155;
+    }
+
+    .meter-ticks-db-pad {
+      width: 46px;
+      flex-shrink: 0;
+    }
+
+    .meter-scale {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+
+    .meter-scale-pad {
+      width: 22px;
+      flex-shrink: 0;
+    }
+
+    .meter-scale-track {
+      flex: 1;
+      display: flex;
+      margin-left: 13px; /* 8px ch + 5px gap */
+      margin-right: 51px; /* 5px gap + 46px db */
+      position: relative;
+      height: 9px;
+    }
+
+    .meter-scale-label {
+      position: absolute;
+      font-size: 7px;
+      color: #475569;
+      font-family: 'Courier New', monospace;
+      transform: translateX(-50%);
+      top: 0;
+    }
+
+    .meter-group-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: #64748b;
+      width: 22px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .meter-channels {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+    }
+
+    .meter-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .meter-ch {
+      font-size: 9px;
+      font-weight: 700;
+      color: #475569;
+      width: 8px;
+      flex-shrink: 0;
+    }
+
+    .meter-track {
+      flex: 1;
+      height: 6px;
+      background: #1e293b;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .meter-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981 0%, #10b981 60%, #f59e0b 80%, #ef4444 100%);
+    }
+
+    .meter-peak {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      left: 0%;
+      transform: translateX(-1px);
+    }
+
+    .meter-db {
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      color: #64748b;
+      width: 46px;
+      text-align: right;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .blue { color: #3b82f6; }
+    .green { color: #10b981; }
+    .purple { color: #a855f7; }
+    .amber { color: #f59e0b; }
+
+    .plot-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .plot-row .plot-box {
+      flex: 1;
+      width: auto;
+      margin: 0;
+    }
+
+    .auto-gain {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .auto-gain-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: #94a3b8;
+      white-space: nowrap;
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .toggle {
+      position: relative;
+      width: 28px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #334155;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 10px;
+      height: 10px;
+      background: #94a3b8;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .toggle input:checked + .toggle-track {
+      background: #16a34a;
+    }
+
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(14px);
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+    </svg>
+    <div>
+      <h1>Dynamic Lookahead Limiter</h1>
+      <div class="subtitle">Processing page audio in real-time</div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="status-bar">
+      <div id="status" class="status-inactive">Ready - Click to activate</div>
+    </div>
+    <button id="powerBtn" class="power-btn inactive">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+        <line x1="12" y1="2" x2="12" y2="12"></line>
+      </svg>
+      <span id="powerText">Activate</span>
+    </button>
+  </div>
+
+  <div id="meters" class="meters">
+    <div class="meter-group">
+      <span class="meter-group-label">IN</span>
+      <div class="meter-channels">
+        <div class="meter-row">
+          <span class="meter-ch">L</span>
+          <div class="meter-track"><div id="inBarL" class="meter-bar"></div><div id="inPeakL" class="meter-peak"></div></div>
+          <span id="inDbL" class="meter-db">-∞dB</span>
+        </div>
+        <div class="meter-ticks-row">
+          <div class="meter-ticks-pad"></div>
+          <div class="meter-ticks-track" data-ticks></div>
+          <div class="meter-ticks-db-pad"></div>
+        </div>
+        <div class="meter-row">
+          <span class="meter-ch">R</span>
+          <div class="meter-track"><div id="inBarR" class="meter-bar"></div><div id="inPeakR" class="meter-peak"></div></div>
+          <span id="inDbR" class="meter-db">-∞dB</span>
+        </div>
+      </div>
+    </div>
+    <div class="meter-scale">
+      <div class="meter-scale-pad"></div>
+      <div class="meter-scale-track" id="meterScale"></div>
+    </div>
+    <div class="meter-group">
+      <span class="meter-group-label">OUT</span>
+      <div class="meter-channels">
+        <div class="meter-row">
+          <span class="meter-ch">L</span>
+          <div class="meter-track"><div id="outBarL" class="meter-bar"></div><div id="outPeakL" class="meter-peak"></div></div>
+          <span id="outDbL" class="meter-db">-∞dB</span>
+        </div>
+        <div class="meter-ticks-row">
+          <div class="meter-ticks-pad"></div>
+          <div class="meter-ticks-track" data-ticks></div>
+          <div class="meter-ticks-db-pad"></div>
+        </div>
+        <div class="meter-row">
+          <span class="meter-ch">R</span>
+          <div class="meter-track"><div id="outBarR" class="meter-bar"></div><div id="outPeakR" class="meter-peak"></div></div>
+          <span id="outDbR" class="meter-db">-∞dB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <div class="control-group">
+      <div class="control-header">
+        <span class="control-label">Saturation Level</span>
+        <span id="satValue" class="control-value blue">-6.0 dB</span>
+      </div>
+      <input type="range" id="satLevel" min="-30" max="0" step="0.1" value="-6">
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span class="control-label">Knee</span>
+        <span id="kneeValue" class="control-value blue">0.0 dB</span>
+      </div>
+      <input type="range" id="kneeWidth" min="0" max="6" step="0.1" value="0">
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span class="control-label">Output Gain</span>
+        <span id="gainValue" class="control-value green">+6.0 dB</span>
+      </div>
+      <input type="range" id="outputGain" min="0" max="30" step="0.1" value="6">
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span class="control-label">Lookahead Time</span>
+        <span id="lookValue" class="control-value purple">5.0 ms</span>
+      </div>
+      <input type="range" id="lookahead" min="0" max="20" step="0.1" value="5">
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span class="control-label">Min Recovery Time</span>
+        <span id="recValue" class="control-value amber">20 ms</span>
+      </div>
+      <input type="range" id="minRecovery" min="1" max="1000" step="1" value="20">
+    </div>
+  </div>
+
+  <div class="plot-row">
+    <div class="auto-gain">
+      <label class="toggle">
+        <input type="checkbox" id="autoGain">
+        <div class="toggle-track"></div>
+      </label>
+      <span class="auto-gain-label">Auto<br>Gain</span>
+    </div>
+    <div class="plot-box">
+      <canvas id="plotCanvas"></canvas>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
