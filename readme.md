@@ -2,6 +2,8 @@
 
 A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery.
 
+![Screenshot](screenshot.png)
+
 ## Architecture
 
 ```
