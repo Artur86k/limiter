@@ -542,6 +542,31 @@ function buildMeterScale() {
   }
 }
 
+function addSliderTicks(slider, interval) {
+  const min = parseFloat(slider.min);
+  const max = parseFloat(slider.max);
+  const range = max - min;
+  const container = document.createElement('div');
+  container.className = 'slider-ticks';
+  const start = Math.ceil(min / interval) * interval;
+  for (let v = start; v <= max + interval * 0.001; v += interval) {
+    const pct = ((v - min) / range) * 100;
+    const tick = document.createElement('div');
+    tick.className = 'slider-tick';
+    tick.style.left = pct + '%';
+    container.appendChild(tick);
+  }
+  slider.after(container);
+}
+
+function buildSliderTicks() {
+  addSliderTicks(satLevelSlider, 1);
+  addSliderTicks(kneeWidthSlider, 1);
+  addSliderTicks(outputGainSlider, 1);
+  addSliderTicks(lookaheadSlider, 1);
+  addSliderTicks(minRecoverySlider, 100);
+}
+
 // Restore settings and check active state on load
 window.addEventListener('load', async () => {
   const stored = await chrome.storage.local.get(['saturationLevel', 'kneeWidth', 'outputGain', 'lookahead', 'minRecovery', 'autoGain', 'limiterActive']);
@@ -549,6 +574,7 @@ window.addEventListener('load', async () => {
   if (stored.autoGain !== undefined) autoGainCheckbox.checked = stored.autoGain;
 
   buildMeterScale();
+  buildSliderTicks();
   initPlot();
   drawPlot(null);
 
