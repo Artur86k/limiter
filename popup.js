@@ -186,13 +186,17 @@ function drawDot(inDb, outDb, color) {
 
 // Persist slider values
 function saveSettings() {
-  chrome.storage.local.set({
+  const params = {
     saturationLevel: parseFloat(satLevelSlider.value),
     kneeWidth: parseFloat(kneeWidthSlider.value),
     outputGain: parseFloat(outputGainSlider.value),
     lookahead: parseFloat(lookaheadSlider.value),
-    minRecovery: parseInt(minRecoverySlider.value),
-    autoGain: autoGainCheckbox.checked
+    minRecovery: parseInt(minRecoverySlider.value)
+  };
+  chrome.storage.local.set({
+    ...params,
+    autoGain: autoGainCheckbox.checked,
+    limiterParams: params
   });
 }
 
@@ -232,7 +236,7 @@ async function injectProcessor() {
   try {
     // Inject the audio processor
     await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+      target: { tabId: tab.id, allFrames: true },
       files: ['processor.js'],
       world: 'MAIN'
     });
@@ -404,6 +408,7 @@ async function activateLimiter() {
     powerText.textContent = 'Active';
     statusEl.textContent = 'Processing audio ✓';
     statusEl.className = 'status-active';
+    chrome.storage.local.set({ limiterActive: true, limiterParams: params });
     startMeterPolling();
   } else {
     statusEl.textContent = response?.error || 'Failed to start. Make sure page has audio!';
@@ -415,6 +420,7 @@ async function deactivateLimiter() {
   await sendToPage({ action: 'stop' });
 
   isActive = false;
+  chrome.storage.local.set({ limiterActive: false });
   stopMeterPolling();
   powerBtn.classList.remove('active');
   powerBtn.classList.add('inactive');
@@ -538,7 +544,7 @@ function buildMeterScale() {
 
 // Restore settings and check active state on load
 window.addEventListener('load', async () => {
-  const stored = await chrome.storage.local.get(['saturationLevel', 'kneeWidth', 'outputGain', 'lookahead', 'minRecovery', 'autoGain']);
+  const stored = await chrome.storage.local.get(['saturationLevel', 'kneeWidth', 'outputGain', 'lookahead', 'minRecovery', 'autoGain', 'limiterActive']);
   applySettings(stored);
   if (stored.autoGain !== undefined) autoGainCheckbox.checked = stored.autoGain;
 
@@ -546,6 +552,7 @@ window.addEventListener('load', async () => {
   initPlot();
   drawPlot(null);
 
+  // Check if limiter is actually running on the current tab
   const response = await sendToPage({ action: 'status' });
 
   if (response && response.active) {
@@ -556,5 +563,12 @@ window.addEventListener('load', async () => {
     statusEl.textContent = 'Processing audio ✓';
     statusEl.className = 'status-active';
     startMeterPolling();
+  } else if (stored.limiterActive) {
+    // Limiter is globally active but not yet running on this tab — show armed state
+    powerBtn.classList.remove('inactive');
+    powerBtn.classList.add('active');
+    powerText.textContent = 'Active';
+    statusEl.textContent = 'Active — waiting for audio';
+    statusEl.className = 'status-active';
   }
 });

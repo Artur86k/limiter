@@ -18,11 +18,11 @@
   let processedContexts = new Map(); // AudioContext -> processorData
 
   let params = {
-    saturationLevel: -6,
-    kneeWidth: 0,
-    outputGain: 6,
-    lookahead: 0.5,
-    minRecovery: 20
+    saturationLevel: -8,
+    kneeWidth: 6,
+    outputGain: 8,
+    lookahead: 1.5,
+    minRecovery: 150
   };
 
   // Connect using the original (unpatched) connect to avoid interceptor tracking

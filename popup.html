@@ -471,48 +471,48 @@
     <div class="control-group">
       <div class="control-header">
         <span class="control-label">Saturation Level</span>
-        <span id="satValue" class="control-value blue">-6.0 dB</span>
+        <span id="satValue" class="control-value blue">-8.0 dB</span>
       </div>
-      <input type="range" id="satLevel" min="-30" max="0" step="0.1" value="-6">
+      <input type="range" id="satLevel" min="-30" max="0" step="0.1" value="-8">
     </div>
 
     <div class="control-group">
       <div class="control-header">
         <span class="control-label">Knee</span>
-        <span id="kneeValue" class="control-value blue">0.0 dB</span>
+        <span id="kneeValue" class="control-value blue">6.0 dB</span>
       </div>
-      <input type="range" id="kneeWidth" min="0" max="6" step="0.1" value="0">
+      <input type="range" id="kneeWidth" min="0" max="6" step="0.1" value="6">
     </div>
 
     <div class="control-group">
       <div class="control-header">
         <span class="control-label">Output Gain</span>
-        <span id="gainValue" class="control-value green">+6.0 dB</span>
+        <span id="gainValue" class="control-value green">+8.0 dB</span>
       </div>
-      <input type="range" id="outputGain" min="0" max="30" step="0.1" value="6">
+      <input type="range" id="outputGain" min="0" max="30" step="0.1" value="8">
     </div>
 
     <div class="control-group">
       <div class="control-header">
         <span class="control-label">Lookahead Time</span>
-        <span id="lookValue" class="control-value purple">5.0 ms</span>
+        <span id="lookValue" class="control-value purple">1.5 ms</span>
       </div>
-      <input type="range" id="lookahead" min="0" max="20" step="0.1" value="5">
+      <input type="range" id="lookahead" min="0" max="20" step="0.1" value="1.5">
     </div>
 
     <div class="control-group">
       <div class="control-header">
         <span class="control-label">Min Recovery Time</span>
-        <span id="recValue" class="control-value amber">20 ms</span>
+        <span id="recValue" class="control-value amber">150 ms</span>
       </div>
-      <input type="range" id="minRecovery" min="1" max="1000" step="1" value="20">
+      <input type="range" id="minRecovery" min="1" max="1000" step="1" value="150">
     </div>
   </div>
 
   <div class="plot-row">
     <div class="auto-gain">
       <label class="toggle">
-        <input type="checkbox" id="autoGain">
+        <input type="checkbox" id="autoGain" checked>
         <div class="toggle-track"></div>
       </label>
       <span class="auto-gain-label">Auto<br>Gain</span>
