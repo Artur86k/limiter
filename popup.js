@@ -429,16 +429,32 @@ async function deactivateLimiter() {
   statusEl.className = 'status-inactive';
 }
 
-// Mouse wheel on sliders
+// Mouse wheel on sliders — snap to whole increments
+const wheelSteps = {
+  satLevel: 1,
+  kneeWidth: 1,
+  outputGain: 1,
+  lookahead: 1,
+  minRecovery: 10
+};
+
 document.querySelectorAll('input[type="range"]').forEach(slider => {
   slider.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const step = parseFloat(slider.step) || 1;
+    const step = wheelSteps[slider.id] || 1;
     const min = parseFloat(slider.min);
     const max = parseFloat(slider.max);
-    const delta = e.deltaY < 0 ? step : -step;
-    const newVal = Math.min(max, Math.max(min, parseFloat(slider.value) + delta));
-    slider.value = newVal;
+    const cur = parseFloat(slider.value);
+    // Snap to next whole step in scroll direction
+    // e.g. 1.9 up→2, 2 up→3, 1.9 down→1, 1 down→0
+    const rounded = Math.round(cur / step) * step;
+    let newVal;
+    if (e.deltaY < 0) {
+      newVal = (rounded > cur + 0.001) ? rounded : rounded + step;
+    } else {
+      newVal = (rounded < cur - 0.001) ? rounded : rounded - step;
+    }
+    slider.value = Math.min(max, Math.max(min, newVal));
     slider.dispatchEvent(new Event('input'));
   }, { passive: false });
 });
@@ -542,7 +558,7 @@ function buildMeterScale() {
   }
 }
 
-function addSliderTicks(slider, interval) {
+function addSliderTicks(slider, interval, majorInterval) {
   const min = parseFloat(slider.min);
   const max = parseFloat(slider.max);
   const range = max - min;
@@ -553,6 +569,9 @@ function addSliderTicks(slider, interval) {
     const pct = ((v - min) / range) * 100;
     const tick = document.createElement('div');
     tick.className = 'slider-tick';
+    if (majorInterval && Math.abs(Math.round(v / majorInterval) * majorInterval - v) < 0.01) {
+      tick.classList.add('slider-tick-major');
+    }
     tick.style.left = pct + '%';
     container.appendChild(tick);
   }
@@ -560,9 +579,9 @@ function addSliderTicks(slider, interval) {
 }
 
 function buildSliderTicks() {
-  addSliderTicks(satLevelSlider, 1);
+  addSliderTicks(satLevelSlider, 1, 10);
   addSliderTicks(kneeWidthSlider, 1);
-  addSliderTicks(outputGainSlider, 1);
+  addSliderTicks(outputGainSlider, 1, 10);
   addSliderTicks(lookaheadSlider, 1);
   addSliderTicks(minRecoverySlider, 100);
 }

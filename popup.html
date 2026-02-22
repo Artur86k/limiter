@@ -147,12 +147,13 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
+      width: 6px;
+      height: 14px;
+      border-radius: 3px;
       background: #3b82f6;
       cursor: pointer;
       box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+      margin-top: -4px;
     }
     
     input[type="range"]::-webkit-slider-thumb:hover {
@@ -162,7 +163,7 @@
     .slider-ticks {
       position: relative;
       height: 4px;
-      margin: -1px 8px 0;
+      margin: -1px 3px 0;
     }
 
     .slider-tick {
@@ -171,6 +172,11 @@
       height: 3px;
       background: #2a3548;
       top: 0;
+    }
+
+    .slider-tick-major {
+      width: 2px;
+      background: #3d4d63;
     }
 
     .plot-box {
