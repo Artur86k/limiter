@@ -1,6 +1,6 @@
 # Adaptive Audio Limiter — Chrome Extension
 
-A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery.
+A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery. Remembers its active state and auto-activates on page load after browser restart.
 
 ![Screenshot](screenshot.png)
 
@@ -16,6 +16,7 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 - **Main thread rAF loop** (`processor.js`): spectral analysis only (FFT centroid, low-energy ratio, RMS) via AnalyserNode, sent to the worklet for adaptive hold/recovery computation.
 - **Interceptor** (`interceptor.js`): patches `AudioContext` constructors and `AudioNode.connect` at `document_start` to track all page Web Audio contexts and destination connections.
 - **Bridge** (`bridge.js`): content script in ISOLATED world, relays `chrome.runtime` messages to the MAIN world processor via `postMessage`, and exposes the worklet URL via a DOM data attribute.
+- **Background** (`background.js`): service worker that persists active state and auto-injects the limiter on page load when active.
 - **Popup** (`popup.html`, `popup.js`): UI with meters, transfer curve plot, sliders, and normalize output toggle. No processing logic.
 
 ## Files
@@ -24,8 +25,9 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 |------|-------|------|
 | `interceptor.js` | MAIN (content script) | Patches AudioContext/connect to track page audio graphs |
 | `bridge.js` | ISOLATED (content script) | Message relay between extension and page |
-| `processor.js` | MAIN (injected by popup) | Creates AudioWorkletNode chains, spectral analysis loop |
+| `processor.js` | MAIN (injected) | Creates AudioWorkletNode chains, spectral analysis loop |
 | `limiter-worklet.js` | AudioWorklet thread | Sample-accurate limiter DSP |
+| `background.js` | Service worker | Auto-activation on page load, state persistence |
 | `popup.html` / `popup.js` | Extension popup | UI, meters, parameter control |
 | `manifest.json` | — | Extension manifest (MV3) |
 
@@ -42,17 +44,19 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 2. Click the extension icon
 3. Click **Activate**
 4. Adjust sliders — changes apply in real-time
+5. Close the popup — the limiter keeps running
+6. After browser restart, the limiter auto-activates on page load (no need to reopen the popup)
 
 ## Parameters
 
-| Parameter | Range | Description |
-|-----------|-------|-------------|
-| **Saturation Level** | -30 to 0 dB | Threshold where limiting begins |
-| **Knee** | 0 to 6 dB | Soft knee width (0 = hard knee) |
-| **Output Gain** | 0 to +30 dB | Makeup gain after limiting |
-| **Lookahead** | 0 to 20 ms | Ring buffer delay for transient anticipation |
-| **Min Recovery** | 1 to 1000 ms | Base envelope decay time (extended by spectral analysis) |
-| **Normalize Output** | on/off | Locks output gain to |saturation level| |
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| **Saturation Level** | -30 to 0 dB | -8 dB | Threshold where limiting begins |
+| **Knee** | 0 to 6 dB | 6 dB | Soft knee width (0 = hard knee) |
+| **Output Gain** | 0 to +30 dB | +8 dB | Makeup gain after limiting |
+| **Lookahead** | 0 to 20 ms | 1.5 ms | Ring buffer delay for transient anticipation |
+| **Min Recovery** | 1 to 1000 ms | 150 ms | Base envelope decay time (extended by spectral analysis) |
+| **Normalize Output** | on/off | on | Locks output gain to |saturation level| |
 
 ## How It Works
 
@@ -61,17 +65,18 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 - The worklet posts stereo peak levels to the main thread at ~60fps for the popup meters.
 - Worklet loading uses a two-strategy approach (direct extension URL, then blob URL fallback) to handle pages with strict CSP.
 - Web Audio API contexts are intercepted and rerouted through the limiter chain; media elements use `createMediaElementSource` with a source node cache for clean deactivate/reactivate cycles.
+- Active state is persisted to `chrome.storage.local`. A background service worker listens for page loads and auto-injects the processor with saved parameters.
 
 ## Supported Sites
 
-Works on any page with `<audio>`/`<video>` elements or Web Audio API usage.
+Works on any page with `<audio>`/`<video>` elements or Web Audio API usage, including pages with iframes (`all_frames: true`).
 DRM-protected content (Netflix, Disney+) cannot be processed.
 
 ## Privacy
 
 - All processing is local — no audio is recorded or transmitted
 - No data collection
-- Only active when you click Activate
+- Active state is stored locally to enable auto-activation across browser restarts
 
 ## License
 
