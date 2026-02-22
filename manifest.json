@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Dynamic Lookahead Limiter",
+  "name": "Adaptive Audio Limiter",
   "version": "1.0.0",
-  "description": "Professional audio limiter for web pages",
+  "description": "Adaptive audio limiter for web pages",
   "permissions": [
     "activeTab",
     "tabs",

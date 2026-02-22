@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dynamic Lookahead Limiter</title>
+  <title>Adaptive Audio Limiter</title>
   <style>
     * {
       margin: 0;
@@ -158,6 +158,15 @@
     
     input[type="range"]::-webkit-slider-thumb:hover {
       background: #60a5fa;
+    }
+
+    input[type="range"].thumb-muted::-webkit-slider-thumb {
+      background: #64748b;
+      box-shadow: none;
+    }
+
+    input[type="range"].thumb-muted::-webkit-slider-thumb:hover {
+      background: #94a3b8;
     }
 
     .slider-ticks {
@@ -422,7 +431,7 @@
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
     </svg>
     <div>
-      <h1>Dynamic Lookahead Limiter</h1>
+      <h1>Adaptive Audio Limiter</h1>
       <div class="subtitle">Processing page audio in real-time</div>
     </div>
   </div>
@@ -535,7 +544,7 @@
         <input type="checkbox" id="autoGain" checked>
         <div class="toggle-track"></div>
       </label>
-      <span class="auto-gain-label">Auto<br>Gain</span>
+      <span class="auto-gain-label">Normalize<br>Output</span>
     </div>
     <div class="plot-box">
       <canvas id="plotCanvas"></canvas>

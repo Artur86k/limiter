@@ -132,6 +132,15 @@ function drawPlot(levels) {
     }
   }
 
+  // Axis labels
+  pCtx.fillStyle = '#475569';
+  pCtx.font = 'italic 8px sans-serif';
+  pCtx.textAlign = 'center';
+  pCtx.textBaseline = 'middle';
+  pCtx.fillText('input', (pX(-20) + pX(0)) / 2, areaB + 10);
+  pCtx.textAlign = 'right';
+  pCtx.fillText('out', areaL - 3, (pY(-20) + pY(0)) / 2);
+
   // Clip to plot area for curves and dots
   pCtx.save();
   pCtx.beginPath();
@@ -497,6 +506,7 @@ autoGainCheckbox.addEventListener('change', () => {
       sendToPage({ action: 'updateParam', param: 'outputGain', value: gain });
     }
   }
+  outputGainSlider.classList.toggle('thumb-muted', autoGainCheckbox.checked);
   saveSettings();
   drawPlot(lastLevels);
 });
@@ -504,6 +514,7 @@ autoGainCheckbox.addEventListener('change', () => {
 outputGainSlider.addEventListener('input', (e) => {
   if (autoGainCheckbox.checked) {
     autoGainCheckbox.checked = false;
+    outputGainSlider.classList.remove('thumb-muted');
     saveSettings();
   }
   const value = parseFloat(e.target.value);
@@ -591,6 +602,7 @@ window.addEventListener('load', async () => {
   const stored = await chrome.storage.local.get(['saturationLevel', 'kneeWidth', 'outputGain', 'lookahead', 'minRecovery', 'autoGain', 'limiterActive']);
   applySettings(stored);
   if (stored.autoGain !== undefined) autoGainCheckbox.checked = stored.autoGain;
+  outputGainSlider.classList.toggle('thumb-muted', autoGainCheckbox.checked);
 
   buildMeterScale();
   buildSliderTicks();

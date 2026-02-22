@@ -1,4 +1,4 @@
-# Dynamic Lookahead Limiter — Chrome Extension
+# Adaptive Audio Limiter — Chrome Extension
 
 A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery.
 
@@ -16,7 +16,7 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 - **Main thread rAF loop** (`processor.js`): spectral analysis only (FFT centroid, low-energy ratio, RMS) via AnalyserNode, sent to the worklet for adaptive hold/recovery computation.
 - **Interceptor** (`interceptor.js`): patches `AudioContext` constructors and `AudioNode.connect` at `document_start` to track all page Web Audio contexts and destination connections.
 - **Bridge** (`bridge.js`): content script in ISOLATED world, relays `chrome.runtime` messages to the MAIN world processor via `postMessage`, and exposes the worklet URL via a DOM data attribute.
-- **Popup** (`popup.html`, `popup.js`): UI with meters, transfer curve plot, sliders, and auto-gain toggle. No processing logic.
+- **Popup** (`popup.html`, `popup.js`): UI with meters, transfer curve plot, sliders, and normalize output toggle. No processing logic.
 
 ## Files
 
@@ -52,7 +52,7 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 | **Output Gain** | 0 to +30 dB | Makeup gain after limiting |
 | **Lookahead** | 0 to 20 ms | Ring buffer delay for transient anticipation |
 | **Min Recovery** | 1 to 1000 ms | Base envelope decay time (extended by spectral analysis) |
-| **Auto Gain** | on/off | Locks output gain to |saturation level| |
+| **Normalize Output** | on/off | Locks output gain to |saturation level| |
 
 ## How It Works
 

@@ -10,7 +10,7 @@
   const origConnect = interceptor ? interceptor.origConnect : AudioNode.prototype.connect;
   const workletUrl = document.documentElement.dataset.audioLimiterWorkletUrl;
 
-  console.log('Dynamic Lookahead Limiter injected');
+  console.log('Adaptive Audio Limiter injected');
 
   let isActive = false;
   let audioContext = null; // Our own context for media elements
