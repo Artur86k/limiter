@@ -1,6 +1,6 @@
 # Adaptive Audio Limiter — Chrome Extension
 
-A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery. Remembers its active state and auto-activates on page load after browser restart.
+A sample-accurate audio limiter for web pages, built on the AudioWorklet API. Processes all page audio in real-time with adaptive spectral-aware recovery.
 
 ![Screenshot](screenshot.png)
 
@@ -13,21 +13,20 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 ```
 
 - **AudioWorkletProcessor** (`limiter-worklet.js`): runs on the audio thread — ring buffer lookahead delay, per-sample envelope follower (instant attack, adaptive hold, exponential decay), hard/soft knee gain reduction, output gain, and stereo level metering.
-- **Main thread rAF loop** (`processor.js`): spectral analysis only (FFT centroid, low-energy ratio, RMS) via AnalyserNode, sent to the worklet for adaptive hold/recovery computation.
+- **Processor** (`processor.js`): injected into the page (MAIN world) — creates AudioWorkletNode chains, routes media elements and Web Audio contexts through the limiter, runs a rAF spectral analysis loop (FFT centroid, low-energy ratio, RMS) and sends results to the worklet for adaptive hold/recovery.
 - **Interceptor** (`interceptor.js`): patches `AudioContext` constructors and `AudioNode.connect` at `document_start` to track all page Web Audio contexts and destination connections.
 - **Bridge** (`bridge.js`): content script in ISOLATED world, relays `chrome.runtime` messages to the MAIN world processor via `postMessage`, and exposes the worklet URL via a DOM data attribute.
-- **Background** (`background.js`): service worker that persists active state and auto-injects the limiter on page load when active.
 - **Popup** (`popup.html`, `popup.js`): UI with meters, transfer curve plot, sliders, and normalize output toggle. No processing logic.
 
 ## Files
 
 | File | World | Role |
 |------|-------|------|
+| `webext.js` | MAIN + ISOLATED (content script) | Cross-browser API shim (`ext` alias for `chrome`/`browser`) |
 | `interceptor.js` | MAIN (content script) | Patches AudioContext/connect to track page audio graphs |
 | `bridge.js` | ISOLATED (content script) | Message relay between extension and page |
-| `processor.js` | MAIN (injected) | Creates AudioWorkletNode chains, spectral analysis loop |
+| `processor.js` | MAIN (injected) | Creates AudioWorkletNode chains, routes audio, spectral analysis loop |
 | `limiter-worklet.js` | AudioWorklet thread | Sample-accurate limiter DSP |
-| `background.js` | Service worker | Auto-activation on page load, state persistence |
 | `popup.html` / `popup.js` | Extension popup | UI, meters, parameter control |
 | `manifest.json` | — | Extension manifest (MV3) |
 
@@ -45,7 +44,6 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 3. Click **Activate**
 4. Adjust sliders — changes apply in real-time
 5. Close the popup — the limiter keeps running
-6. After browser restart, the limiter auto-activates on page load (no need to reopen the popup)
 
 ## Parameters
 
@@ -65,7 +63,7 @@ source -> inputAnalyser -> AudioWorkletNode -> destination
 - The worklet posts stereo peak levels to the main thread at ~60fps for the popup meters.
 - Worklet loading uses a two-strategy approach (direct extension URL, then blob URL fallback) to handle pages with strict CSP.
 - Web Audio API contexts are intercepted and rerouted through the limiter chain; media elements use `createMediaElementSource` with a source node cache for clean deactivate/reactivate cycles.
-- Active state is persisted to `chrome.storage.local`. A background service worker listens for page loads and auto-injects the processor with saved parameters.
+- Slider settings are persisted to `chrome.storage.local` and restored when the popup reopens.
 
 ## Supported Sites
 
@@ -76,7 +74,7 @@ DRM-protected content (Netflix, Disney+) cannot be processed.
 
 - All processing is local — no audio is recorded or transmitted
 - No data collection
-- Active state is stored locally to enable auto-activation across browser restarts
+- Slider settings are stored locally to restore your preferred parameters between sessions
 
 ## License
 
