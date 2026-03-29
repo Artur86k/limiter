@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Adaptive Audio Limiter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Adaptive audio limiter for web pages",
   "permissions": [
     "activeTab",
-    "tabs",
     "scripting",
     "storage"
   ],

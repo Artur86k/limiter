@@ -31,7 +31,7 @@ const peakState = {
   outL: { value: -Infinity, time: 0 },
   outR: { value: -Infinity, time: 0 }
 };
-const PEAK_HOLD_MS = 200;
+const PEAK_HOLD_MS = 600;
 
 // Bar hold state — instant rise, hold, then smooth decay
 const barState = {
@@ -268,9 +268,9 @@ async function sendToPage(message) {
 
 // Level meter helpers
 function dbToMeterPercent(db) {
-  // Map -80 dB .. 0 dB to 0% .. 100%
-  const clamped = Math.max(-80, Math.min(0, db));
-  return ((clamped + 80) / 80) * 100;
+  // Map -80 dB .. +10 dB to 0% .. 100%
+  const clamped = Math.max(-80, Math.min(10, db));
+  return ((clamped + 80) / 90) * 100;
 }
 
 function formatDb(db) {
@@ -542,10 +542,19 @@ minRecoverySlider.addEventListener('input', (e) => {
 function buildMeterScale() {
   // Tick lines between L and R channels
   document.querySelectorAll('[data-ticks]').forEach(track => {
-    for (let db = -80; db <= 0; db += 10) {
-      const pct = ((db + 80) / 80) * 100;
+    // Major ticks: -80, -70, ..., 0, +10
+    for (let db = -80; db <= 10; db += 10) {
+      const pct = ((db + 80) / 90) * 100;
       const tick = document.createElement('div');
       tick.className = 'meter-tick';
+      tick.style.left = pct + '%';
+      track.appendChild(tick);
+    }
+    // Minor ticks: -75, -65, ..., -5, +5
+    for (let db = -75; db <= 5; db += 10) {
+      const pct = ((db + 80) / 90) * 100;
+      const tick = document.createElement('div');
+      tick.className = 'meter-tick meter-tick-minor';
       tick.style.left = pct + '%';
       track.appendChild(tick);
     }
@@ -554,13 +563,21 @@ function buildMeterScale() {
   // Number labels between INPUT and OUTPUT
   const scaleEl = document.getElementById('meterScale');
   for (let db = -80; db <= 0; db += 10) {
-    const pct = ((db + 80) / 80) * 100;
+    const pct = ((db + 80) / 90) * 100;
     const label = document.createElement('span');
     label.className = 'meter-scale-label';
     label.style.left = pct + '%';
+    label.style.color = '#10b981';
     label.textContent = db;
     scaleEl.appendChild(label);
   }
+  // Label at +10 dB (red)
+  const label10 = document.createElement('span');
+  label10.className = 'meter-scale-label';
+  label10.style.left = '100%';
+  label10.style.color = '#ef4444';
+  label10.textContent = '+10';
+  scaleEl.appendChild(label10);
 }
 
 function addSliderTicks(slider, interval, majorInterval) {
